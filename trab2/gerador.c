@@ -60,59 +60,59 @@ void parseRet( unsigned char *codeArray, int *codeCount, char *cmd, char* addrFi
 
 void parseAssign( unsigned char *codeArray, int *codeCount, char * cmd ) {
 	int *p;
-	char assigned[10], comp[2][20], ebpIncr, operand;
+	char assigned[10], operand[2][20], ebpIncr, operator;
 
-	if(sscanf(cmd, " %s %*s %s %c %s", assigned, comp[0], &operand, comp[1]) != 4) return;
+	if(sscanf(cmd, " %s %*s %s %c %s", assigned, operand[0], &operator, operand[1]) != 4) return;
 
-	// mov first operand to %ecx
-	if(comp[0][0] == '$') {
+	// mov first operator to %ecx
+	if(operand[0][0] == '$') {
 		codeArray[(*codeCount)++]=0xb9;
 
 		p=(int*)&codeArray[*codeCount];
-		*p = atoi(&comp[0][1]);
+		*p = atoi(&operand[0][1]);
 		*codeCount += 4;
 	} else {
 		codeArray[(*codeCount)++]=0x8b;
 		codeArray[(*codeCount)++]=0x4d;
-		if(comp[0][0] == 'v')
-			ebpIncr = (-4 * (atoi(&comp[0][1])+1) );
+		if(operand[0][0] == 'v')
+			ebpIncr = (-4 * (atoi(&operand[0][1])+1) );
 		else
-			ebpIncr = ( 4 * atoi(&comp[0][1])) + 8;
+			ebpIncr = ( 4 * atoi(&operand[0][1])) + 8;
 
 		codeArray[(*codeCount)++] = (unsigned char)ebpIncr;
 	}
 
-	// add/sub/mul second operand to %ecx
-	if(comp[1][0] == '$') {
-		if(operand == '+') {
+	// add/sub/mul second operator to %ecx
+	if(operand[1][0] == '$') {
+		if(operator == '+') {
 			codeArray[(*codeCount)++]=0x81;
 			codeArray[(*codeCount)++]=0xc1;
-		} else if (operand == '-') {
+		} else if (operator == '-') {
 			codeArray[(*codeCount)++]=0x81;
 			codeArray[(*codeCount)++]=0xe9;
-		} else if (operand == '*') {
+		} else if (operator == '*') {
 			codeArray[(*codeCount)++]=0x69;
 			codeArray[(*codeCount)++]=0xc9;
 		}
 		p=(int*)&codeArray[*codeCount];
-		*p = atoi(&comp[1][1]);
+		*p = atoi(&operand[1][1]);
 		*codeCount += 4;
 	} else {
-		if(operand == '+') {
+		if(operator == '+') {
 			codeArray[(*codeCount)++]=0x03;
 			codeArray[(*codeCount)++]=0x4d;
-		} else if (operand == '-') {
+		} else if (operator == '-') {
 			codeArray[(*codeCount)++]=0x2b;
 			codeArray[(*codeCount)++]=0x4d;
-		} else if (operand == '*') {
+		} else if (operator == '*') {
 			codeArray[(*codeCount)++]=0x0f;
 			codeArray[(*codeCount)++]=0xaf;
 			codeArray[(*codeCount)++]=0x4d;
 		}
-		if(comp[1][0] == 'v')
-			ebpIncr = (-4 * (atoi(&comp[1][1])+1) );
+		if(operand[1][0] == 'v')
+			ebpIncr = (-4 * (atoi(&operand[1][1])+1) );
 		else
-			ebpIncr = ( 4 * atoi(&comp[1][1])) + 8;
+			ebpIncr = ( 4 * atoi(&operand[1][1])) + 8;
 
 		codeArray[(*codeCount)++] = (unsigned char)ebpIncr;
 	}
@@ -126,12 +126,49 @@ void parseAssign( unsigned char *codeArray, int *codeCount, char * cmd ) {
 		ebpIncr = ( 4 * atoi(&assigned[1])) + 8;
 
 	codeArray[(*codeCount)++] = (unsigned char)ebpIncr;
+}
 
+
+void parseCall( unsigned char *codeArray, int *codeCount, char * cmd, unsigned char ** functions ) {
+	char assigned[10], param[10], ebpIncr;
+	int functionId, *p;
+
+	if(sscanf(cmd, " %s %*c %*s %d %s", assigned, &functionId, param) != 3) return;
+	if(param[0] == '$') {
+		codeArray[(*codeCount)++]=0x68;
+		p=(int*)&codeArray[*codeCount];
+		*p = atoi(&param[1]);
+		*codeCount += 4;
+	} else {
+		codeArray[(*codeCount)++]=0xff;
+		codeArray[(*codeCount)++]=0x75;
+		if(param[0] == 'v')
+			ebpIncr = (-4 * (atoi(&param[1])+1) );
+		else
+			ebpIncr = ( 4 * atoi(&param[1])) + 8;
+
+		codeArray[(*codeCount)++] = (unsigned char)ebpIncr;
+	}
+
+	codeArray[(*codeCount)++]=0xe8;
+	p=(int*)&codeArray[*codeCount];
+	*codeCount += 4;
+	*p = functions[functionId] - &codeArray[*codeCount];
+
+	codeArray[(*codeCount)++]=0x89;
+	codeArray[(*codeCount)++]=0x45;	
+
+	if(assigned[0] == 'v')
+		ebpIncr = (-4 * (atoi(&assigned[1])+1) );
+	else
+		ebpIncr = ( 4 * atoi(&assigned[1])) + 8;
+
+	codeArray[(*codeCount)++] = (unsigned char)ebpIncr;
 
 }
 
 
-void parseFunction(FILE *f, unsigned char * codeArray, int *codeCount)
+void parseFunction(FILE *f, unsigned char * codeArray, int *codeCount, unsigned char ** functions)
 {
 	char cmd[100], word[20], addrFill[20];
 	int i, addrFillCount = 0;
@@ -156,7 +193,7 @@ void parseFunction(FILE *f, unsigned char * codeArray, int *codeCount)
 
 		// parse call
 		else if( sscanf(cmd, " %*s %*s %s", word) == 1 && strncmp(word, "call", 4) == 0 ) {
-			
+			parseCall( codeArray, codeCount, cmd, functions);
 		}
 		//
 
@@ -197,16 +234,21 @@ void gera(FILE *f, void **code, funcp *entry)
 
 	rewind( f );
 
-	codeArray = (unsigned char *)malloc(200);
+	codeArray = (unsigned char *)malloc(500);
 
 	while( fscanf(f, " %s", word) == 1 && strcmp(word, "function") == 0)
 	{
 		functions[fnCount++] = &codeArray[codeCount];
-		parseFunction(f, codeArray, &codeCount);
+		parseFunction(f, codeArray, &codeCount, functions);
 	}
 
-	*code = codeArray;
+	*code = (void *)codeArray;
 	*entry = (funcp)functions[fnCount-1];
+}
+
+void libera(void *p)
+{
+	free(p);
 }
 
 int main(void) {
@@ -217,6 +259,8 @@ int main(void) {
 	f = fopen("code.ltd","r");
 	gera(f, &code, &fn);
 	printf( "\nresultado: %d\n", (*fn)());
+	//libera(code);
+	fclose(f);
 
 	return 0;
 }

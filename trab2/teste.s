@@ -40,12 +40,11 @@ RMUL:
 RMOVBACK:
 	mov %ecx, 8(%ebp)
 	mov %ecx, -4(%ebp)
-
-RMOVEAX:
-	movl 8(%ebp), %eax
-	movl -4(%ebp), %eax
-	movl $10000, %eax
 */
+RMOVEAX:
+	movl %eax, 8(%ebp)
+	movl %eax, -4(%ebp)
+/*
 RCMP:
 	cmpl $0, 8(%ebp)
 	jne L1
@@ -57,6 +56,16 @@ RTEST:
 	movl 8(%ebp), %eax
 	jmp L1
 LAF:
+*/
+
+	pushl $10000
+	pushl -4(%ebp)
+	pushl 8(%ebp)
+TST:
+	call L1
+	call TST
+
+	addl $8, %esp
 
 
 
