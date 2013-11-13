@@ -1,0 +1,12 @@
+function
+ret? $0 $20
+end
+
+function
+v0 = call 0 $0
+v2 = $1 * $1
+v3 = $1 + $1
+v0 = $1 + $-1
+ret? v0 v2
+ret? $0 v3
+end
