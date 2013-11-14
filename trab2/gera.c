@@ -24,8 +24,10 @@ static void parseRet( unsigned char *codeArray, int *codeCount, char *cmd, int* 
 
 		codeArray[(*codeCount)++] = (unsigned char)ebpIncr;
 		codeArray[(*codeCount)++]=0x00;
-		codeArray[(*codeCount)++]=0x75;
-		replace = (*codeCount)++;
+		codeArray[(*codeCount)++]=0x0f;
+		codeArray[(*codeCount)++]=0x85;
+		replace = (*codeCount);
+		(*codeCount) += 4;
 	}
 
 	sscanf(cmd, " %*s %*s %s", word);
@@ -46,13 +48,14 @@ static void parseRet( unsigned char *codeArray, int *codeCount, char *cmd, int* 
 
 	}
 	
-	codeArray[(*codeCount)++]=0xeb;
-	codeArray[(*codeCount)++]=0x00;
-	addrFill[ (*addrFillCount) ] = (*codeCount) - 1;
+	codeArray[(*codeCount)++]=0xe9;
+	addrFill[ (*addrFillCount) ] = (*codeCount);
+	(*codeCount) += 4;
 	(*addrFillCount)++;
 
 	if(replace != 0) {
-		codeArray[replace] = (unsigned char)((*codeCount) - replace - 1);
+		p = (int *)&codeArray[replace];
+		*p = (unsigned int)((*codeCount) - replace - 4);
 	}
 
 }
@@ -175,8 +178,8 @@ static void parseCall( unsigned char *codeArray, int *codeCount, char * cmd, uns
 static void parseFunction(FILE *f, unsigned char * codeArray, int *codeCount, unsigned char ** functions)
 {
 	char cmd[100], word[20];
-	int i, addrFillCount = 0, addrFill[20];
-	//int inicio = *codeCount;
+	int i, addrFillCount = 0, addrFill[20], *p;
+	int inicio = *codeCount;
 
 	// Function init
 	codeArray[(*codeCount)++]=0x55;
@@ -218,7 +221,8 @@ static void parseFunction(FILE *f, unsigned char * codeArray, int *codeCount, un
 	}
 	
 	for(i = 0; i < addrFillCount; i++) {
-		codeArray[addrFill[i]] = (unsigned char) ( (*codeCount) - addrFill[i] - 1);
+		p = (int *)&codeArray[addrFill[i]];
+		*p = (unsigned int)( (*codeCount) - addrFill[i] - 4);
 	}
 
 	// Function end
@@ -228,9 +232,9 @@ static void parseFunction(FILE *f, unsigned char * codeArray, int *codeCount, un
 	codeArray[(*codeCount)++]=0xc3;
 	//
 
-	//for(i = inicio; i < *codeCount; i++)
-	//	printf("%02x|",codeArray[i]);
-	//printf("\n\n\n");
+	for(i = inicio; i < *codeCount; i++)
+		printf("%02x|",codeArray[i]);
+	printf("\n\n\n");
 }
 
 void gera(FILE *f, void **code, funcp *entry)

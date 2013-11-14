@@ -10,7 +10,7 @@ foo:
 	movl $0, 4(%ebp)
 	movl $0, 8(%ebp)
 	movl $0, 12(%ebp)
-	jmp L1
+	jne L1
 
 
 RMOV:
@@ -54,7 +54,6 @@ RTEST:
 	cmpl $0, 4(%ebp)
 	jne LAF
 	movl 8(%ebp), %eax
-	jmp L1
 LAF:
 
 
