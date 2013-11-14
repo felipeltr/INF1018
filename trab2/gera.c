@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef int (*funcp) ();
+#include "gera.h"
 
-void parseRet( unsigned char *codeArray, int *codeCount, char *cmd, char* addrFill, int *addrFillCount )
+static void parseRet( unsigned char *codeArray, int *codeCount, char *cmd, int* addrFill, int *addrFillCount )
 {
 	char ebpIncr, word[20];
 	int * p, replace = 0;
@@ -58,7 +58,7 @@ void parseRet( unsigned char *codeArray, int *codeCount, char *cmd, char* addrFi
 }
 
 
-void parseAssign( unsigned char *codeArray, int *codeCount, char * cmd ) {
+static void parseAssign( unsigned char *codeArray, int *codeCount, char * cmd ) {
 	int *p;
 	char assigned[10], operand[2][20], ebpIncr, operator;
 
@@ -129,7 +129,7 @@ void parseAssign( unsigned char *codeArray, int *codeCount, char * cmd ) {
 }
 
 
-void parseCall( unsigned char *codeArray, int *codeCount, char * cmd, unsigned char ** functions ) {
+static void parseCall( unsigned char *codeArray, int *codeCount, char * cmd, unsigned char ** functions ) {
 	char assigned[10], param[10], ebpIncr;
 	int functionId, *p;
 
@@ -155,8 +155,12 @@ void parseCall( unsigned char *codeArray, int *codeCount, char * cmd, unsigned c
 	*codeCount += 4;
 	*p = functions[functionId] - &codeArray[*codeCount];
 
+	codeArray[(*codeCount)++]=0x83;
+	codeArray[(*codeCount)++]=0xc4;
+	codeArray[(*codeCount)++]=0x04;
+
 	codeArray[(*codeCount)++]=0x89;
-	codeArray[(*codeCount)++]=0x45;	
+	codeArray[(*codeCount)++]=0x45;
 
 	if(assigned[0] == 'v')
 		ebpIncr = (-4 * (atoi(&assigned[1])+1) );
@@ -168,22 +172,24 @@ void parseCall( unsigned char *codeArray, int *codeCount, char * cmd, unsigned c
 }
 
 
-void parseFunction(FILE *f, unsigned char * codeArray, int *codeCount, unsigned char ** functions)
+static void parseFunction(FILE *f, unsigned char * codeArray, int *codeCount, unsigned char ** functions)
 {
-	char cmd[100], word[20], addrFill[20];
-	int i, addrFillCount = 0;
+	char cmd[100], word[20];
+	int i, addrFillCount = 0, addrFill[20];
+	//int inicio = *codeCount;
 
 	// Function init
 	codeArray[(*codeCount)++]=0x55;
 	codeArray[(*codeCount)++]=0x89;
 	codeArray[(*codeCount)++]=0xe5;
 	codeArray[(*codeCount)++]=0x83;
-	codeArray[(*codeCount)++]=0xc4;
+	codeArray[(*codeCount)++]=0xec;
 	codeArray[(*codeCount)++]=0x28;
 	//
 
 	while( fscanf(f, " %[^\n]", cmd) == 1 && strcmp(cmd, "end") != 0)
 	{
+		//printf("> %s\n", cmd);
 		
 		// parse ret
 		if( strncmp(cmd, "ret", 3) == 0 ) {
@@ -207,15 +213,13 @@ void parseFunction(FILE *f, unsigned char * codeArray, int *codeCount, unsigned 
 		else {
 			printf("--- LINHA IGNORADA ---\n> %s\n\n", cmd);
 		}
+		//
 
 	}
 	
 	for(i = 0; i < addrFillCount; i++) {
-		codeArray[(int)addrFill[i]] = (unsigned char)( (*codeCount) - addrFill[i] - 1);
+		codeArray[addrFill[i]] = (unsigned char) ( (*codeCount) - addrFill[i] - 1);
 	}
-
-	//for(i = 6; i < *codeCount; i++)
-	//	printf("> %02x\n",codeArray[i]);
 
 	// Function end
 	codeArray[(*codeCount)++]=0x89;
@@ -223,6 +227,10 @@ void parseFunction(FILE *f, unsigned char * codeArray, int *codeCount, unsigned 
 	codeArray[(*codeCount)++]=0x5d;
 	codeArray[(*codeCount)++]=0xc3;
 	//
+
+	//for(i = inicio; i < *codeCount; i++)
+	//	printf("%02x|",codeArray[i]);
+	//printf("\n\n\n");
 }
 
 void gera(FILE *f, void **code, funcp *entry)
@@ -234,7 +242,7 @@ void gera(FILE *f, void **code, funcp *entry)
 
 	rewind( f );
 
-	codeArray = (unsigned char *)malloc(500);
+	codeArray = (unsigned char *)malloc(1000);
 
 	while( fscanf(f, " %s", word) == 1 && strcmp(word, "function") == 0)
 	{
@@ -249,18 +257,4 @@ void gera(FILE *f, void **code, funcp *entry)
 void libera(void *p)
 {
 	free(p);
-}
-
-int main(void) {
-	FILE *f;
-	void * code;
-	funcp fn;
-
-	f = fopen("code.ltd","r");
-	gera(f, &code, &fn);
-	printf( "\nresultado: %d\n", (*fn)());
-	//libera(code);
-	fclose(f);
-
-	return 0;
 }

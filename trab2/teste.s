@@ -5,13 +5,13 @@ foo:
 	mov %esp, %ebp
 	jmp L1
 
-	addl $40, %esp
+	subl $40, %esp
 
 	movl $0, 4(%ebp)
 	movl $0, 8(%ebp)
 	movl $0, 12(%ebp)
 	jmp L1
-/*
+
 
 RMOV:
 	movl $0, %ecx
@@ -40,11 +40,11 @@ RMUL:
 RMOVBACK:
 	mov %ecx, 8(%ebp)
 	mov %ecx, -4(%ebp)
-*/
+
 RMOVEAX:
 	movl %eax, 8(%ebp)
 	movl %eax, -4(%ebp)
-/*
+
 RCMP:
 	cmpl $0, 8(%ebp)
 	jne L1
@@ -56,7 +56,7 @@ RTEST:
 	movl 8(%ebp), %eax
 	jmp L1
 LAF:
-*/
+
 
 	pushl $10000
 	pushl -4(%ebp)
